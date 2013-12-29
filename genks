@@ -1,0 +1,362 @@
+#!/bin/bash --
+
+shopt -s -o nounset
+
+_V=0
+
+declare -rx SCRIPT=${0##*/}
+
+declare -r NETWK=".network1"
+
+declare -r RSALT="mysalt"
+declare -r USALT="mysalt"
+
+declare SNAME=""
+declare RPASS=""
+declare UNAME=""
+declare PASSW=""
+
+source KEY
+
+log () {
+	[[ $_V -eq 1 ]] && printf "$SCRIPT:$LINENO: %s\n" "$@"
+}
+
+rootpw() {
+	/usr/bin/python -c 'import crypt; print(crypt.crypt("'$1'", "$6$'$2'"))'
+}
+
+if [ $# -eq 0 ] ; then
+	printf "$SCRIPT:$LINENO: %s\n" "$SCRIPT -s [SYSTEM NAME] -r [ROOT PASSWORD] -u [USER NAME] -p [USER PASSWORD]" >&2
+	exit 192
+fi
+
+while [ $# -gt 0 ] ; do
+	case "$1" in
+		-s | --sname )
+			shift
+
+			if [ $# -eq 0 ] ; then
+				printf "$SCRIPT:$LINENO: %s\n" "system name is missing" >&2
+				exit 192
+			else
+				log "system name: $1"
+			fi
+
+			SNAME="$1"
+
+			if [ "$SNAME" == "" ] ; then
+				printf "$SCRIPT:$LINENO: %s\n" "system name must be specified" >&2
+				exit 192
+			fi
+			;;
+		-r | --rpass )
+			shift
+
+			if [ $# -eq 0 ] ; then
+				printf "$SCRIPT:$LINENO: %s\n" "root password is missing" >&2
+				exit 192
+			else
+				log "root password: $1"
+			fi
+
+			RPASS="$1"
+
+			if [ "$RPASS" == "" ] ; then
+				printf "$SCRIPT:$LINENO: %s\n" "root password must be specified" >&2
+				exit 192
+			fi
+			;;
+		-u | --uname )
+			shift
+
+			if [ $# -eq 0 ] ; then
+				printf "$SCRIPT:$LINENO: %s\n" "user name is missing" >&2
+				exit 192
+			else
+				log "user name: $1"
+			fi
+
+			UNAME="$1"
+
+			if [ "$UNAME" == "" ] ; then
+				printf "$SCRIPT:$LINENO: %s\n" "user name must be specified" >&2
+				exit 192
+			fi
+			;;
+		-p | --passw )
+			shift
+
+			if [ $# -eq 0 ] ; then
+				printf "$SCRIPT:$LINENO: %s\n" "user password is missing" >&2
+				exit 192
+			else
+				log "user password: $1"
+			fi
+
+			PASSW="$1"
+
+			if [ "$PASSW" == "" ] ; then
+				printf "$SCRIPT:$LINENO: %s\n" "user password must be specified" >&2
+				exit 192
+			fi
+			;;
+		-* )
+			printf "$SCRIPT:$LINENO: %s\n" "switch $1 not supported" >&2
+			exit 192
+			;;
+		* )
+			printf "$SCRIPT:$LINENO: %s\n" "extra argument or missing switch" >&2
+			exit 192
+			;;
+	esac
+shift
+done
+
+if [ -x "/bin/cat" ]; then
+	log "command: /bin/cat is executable"
+else
+	printf "$SCRIPT:$LINENO: %s\n" "command: /bin/cat is not executable" >&2
+	exit 192
+fi
+
+if [ -x "/usr/bin/python" ]; then
+	log "command: /usr/bin/python is executable"
+else
+	printf "$SCRIPT:$LINENO: %s\n" "command: /usr/bin/python is not executable" >&2
+	exit 192
+fi
+
+if [ "x$NETWK" == "x" ] ; then
+	printf "$SCRIPT:$LINENO: %s\n" "variable: NETWK is empty" >&2
+	exit 192
+elif [ "x$RSALT" == "x" ] ; then
+	printf "$SCRIPT:$LINENO: %s\n" "variable: RSALT is empty" >&2
+	exit 192
+elif [ "x$USALT" == "x" ] ; then
+	printf "$SCRIPT:$LINENO: %s\n" "variable: USALT is empty" >&2
+	exit 192
+fi
+
+/bin/cat > ${SNAME}-ks.cfg << EOF
+text
+auth --enableshadow --passalgo=sha512
+url --url="http://mirror.1000mbps.com/fedora/linux/releases/20/Fedora/x86_64/os/"
+ignoredisk --only-use=vda
+keyboard --vckeymap=us --xlayouts='us'
+lang en_US.UTF-8
+network  --bootproto=dhcp --device=eth0 --noipv6 --activate --hostname=${SNAME}${NETWK}
+rootpw --iscrypted $(rootpw ${RPASS} ${RSALT})
+timezone Europe/Amsterdam --isUtc
+user --groups=wheel --name=${UNAME} --password=$(rootpw ${PASSW} ${USALT}) --iscrypted
+bootloader --location=mbr --boot-drive=vda --append="rhgb quiet enablemodulesig=1"
+autopart --type=lvm
+clearpart --all --initlabel --drives=vda
+services --enabled=acpid
+shutdown
+
+%packages --ignoremissing
+@core
+acpi
+nano
+%end
+
+%post --log=/root/ks-error.log
+#!/bin/bash --
+
+printf "%s\n" "+ : root : 127.0.0.1 cron" >> /etc/security/access.conf
+printf "%s\n" "+ : ${UNAME} : ALL" >> /etc/security/access.conf
+printf "%s\n" "- : ALL : ALL" >> /etc/security/access.conf
+
+printf "%s\n" "${UNAME}" > /etc/at.allow
+/bin/rm -f /etc/at.deny
+
+/bin/cat > /etc/issue << TEST
+You are about to access a private computer network that is intended for
+authorized users only. You should have no expectation of privacy in
+your use of this network. Use of this network constitutes consent to
+monitoring, retrieval, and disclosure of any information stored within
+the network for any purpose including criminal prosecution.
+TEST
+
+/bin/cat > /etc/issue.net << TEST
+You are about to access a private computer network that is intended for
+authorized users only. You should have no expectation of privacy in
+your use of this network. Use of this network constitutes consent to
+monitoring, retrieval, and disclosure of any information stored within
+the network for any purpose including criminal prosecution.
+TEST
+
+printf "%s\n" "root" > /etc/cron.allow
+printf "%s\n" "${UNAME}" >> /etc/cron.allow
+/bin/rm -f /etc/cron.deny
+
+printf "%s\n" "sshd : ALL" >> /etc/hosts.allow
+printf "%s\n" "ALL : ALL" >> /etc/hosts.deny
+
+/bin/mkdir -m 0700 /home/${UNAME}/.ssh
+/bin/chown -R ${UNAME}.${UNAME} /home/${UNAME}/.ssh
+
+printf "%s\n" "$KEY" >> /home/${UNAME}/.ssh/authorized_keys
+/bin/chmod 0600 /home/${UNAME}/.ssh/authorized_keys
+/bin/chown ${UNAME}.${UNAME} /home/${UNAME}/.ssh/authorized_keys
+
+printf "%s\n" "AllowUsers ${UNAME}" >> /etc/ssh/sshd_config
+
+/bin/cat >> /etc/ssh/sshd_config << TEST
+PermitEmptyPasswords no
+PasswordAuthentication no
+PermitRootLogin no
+PrintLastLog no
+Banner /etc/issue.net
+AllowTcpForwarding no
+X11Forwarding no
+TEST
+
+/bin/cat >> /etc/audit/audit.rules << TEST
+
+# Collect Information on Kernel Module Loading and Unloading
+-w /usr/bin/kmod -p x -k modules
+-a always,exit -F arch=b64 -S init_module -S delete_module -k modules
+
+# Collect System Administrator Actions
+-w /etc/sudoers -p wa -k actions
+-w /etc/sudoers.d/ -p wa -k actions
+
+# Record Events that Modify User/Group Information
+-w /etc/group -p wa -k identity
+-w /etc/passwd -p wa -k identity
+-w /etc/gshadow -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/security/opasswd -p wa -k identity
+
+# Record Events that Modify the System’s Mandatory Access Controls
+-w /etc/selinux/ -p wa -k MAC-policy
+
+# Configuration Immutable
+-e 2
+
+TEST
+%end
+EOF
+
+if [ -x "/bin/awk" ]; then
+    log "command: /bin/awk is executable"
+else
+    printf "$SCRIPT:$LINENO: %s\n" "command: /bin/awk is not executable" >&2
+    exit 192
+fi
+
+if [ -x "/bin/sed" ]; then
+    log "command: /bin/sed is executable"
+else
+    printf "$SCRIPT:$LINENO: %s\n" "command: /bin/sed is not executable" >&2
+    exit 192
+fi
+
+if [ -x "/bin/tail" ]; then
+    log "command: /bin/tail is executable"
+else
+    printf "$SCRIPT:$LINENO: %s\n" "command: /bin/tail is not executable" >&2
+    exit 192
+fi
+
+if [ -x "/bin/chmod" ]; then
+    log "command: /bin/chmod is executable"
+else
+    printf "$SCRIPT:$LINENO: %s\n" "command: /bin/chmod is not executable" >&2
+    exit 192
+fi
+
+if [ -x "/usr/bin/fpaste" ]; then
+    log "command: /usr/bin/fpaste is executable"
+else
+    printf "$SCRIPT:$LINENO: %s\n" "command: /usr/bin/fpaste is not executable" >&2
+    exit 192
+fi
+
+KICKSTART=$(printf "%s\n" "$(/usr/bin/fpaste ${SNAME}-ks.cfg | /bin/tail -n 1 | /bin/awk -F " " '{ print $3 }')/raw")
+
+/bin/cat > ${SNAME}-install << EOF
+#!/bin/bash --
+
+shopt -s -o nounset
+
+_V=0
+
+declare -rx SCRIPT=\${0##*/}
+
+declare -r OSVARIANT="Fedora20"
+
+declare DISKPATH=""
+
+log () {
+    [[ \$_V -eq 1 ]] && printf "\$SCRIPT:\$LINENO: %s\n" "\$@"
+}
+
+if [ \$# -eq 0 ] ; then
+    printf "\$SCRIPT:\$LINENO: %s\n" "\$SCRIPT -d [DISK PATH]" >&2
+    exit 192
+fi
+
+while [ \$# -gt 0 ] ; do
+    case "\$1" in
+        -d | --disk )
+            shift
+
+            if [ \$# -eq 0 ] ; then
+                printf "\$SCRIPT:\$LINENO: %s\n" "disk path is missing" >&2
+                exit 192
+            else
+                log "disk path: \$1"
+            fi
+
+            DISKPATH="\$1"
+
+            if [ "\$DISKPATH" == "" ] ; then
+                printf "\$SCRIPT:\$LINENO: %s\n" "disk path must be specified" >&2
+                exit 192
+            fi
+            ;;
+        -* )
+            printf "\$SCRIPT:\$LINENO: %s\n" "switch \$1 not supported" >&2
+            exit 192
+            ;;
+        * )
+            printf "\$SCRIPT:\$LINENO: %s\n" "extra argument or missing switch" >&2
+            exit 192
+            ;;
+    esac
+shift
+done
+
+if [ -x "/usr/bin/virt-install" ]; then
+    log "command: /usr/bin/virt-install is executable"
+else
+    printf "\$SCRIPT:\$LINENO: %s\n" "command: /usr/bin/virt-install is not executable" >&2
+    exit 192
+fi
+
+if [ -x "/usr/bin/whoami" ]; then
+    log "command: /usr/bin/whoami is executable"
+else
+    printf "\$SCRIPT:\$LINENO: %s\n" "command: /usr/bin/whoami is not executable" >&2
+    exit 192
+fi
+
+if [ "\$(/usr/bin/whoami)" == "root" ] ; then
+	log "whoami: i am root"
+else
+	printf "\$SCRIPT:\$LINENO: %s\n" "whoami: need root" >&2
+	exit 192
+fi
+
+/usr/bin/virt-install --connect qemu:///system --name "${SNAME}${NETWK}" --ram 2048 --vcpus 2 --disk path=\${DISKPATH} --graphics spice --network network=$(printf "%s\n" "${NETWK}" | /bin/sed 's/\.//') \
+	--os-variant \${OSVARIANT} --location "http://mirror.1000mbps.com/fedora/linux/releases/20/Fedora/x86_64/os/" --cpu host --extra-args "ks=${KICKSTART}"
+EOF
+
+/bin/chmod +x ${SNAME}-install
+
+exit 0
+
+#EOF
