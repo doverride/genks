@@ -7,6 +7,7 @@ _V=0
 declare -rx SCRIPT=${0##*/}
 
 declare -r NETWK=".network1"
+declare -r OSVARIANT="20"
 
 declare -r RSALT="mysalt"
 declare -r USALT="mysalt"
@@ -141,7 +142,7 @@ fi
 /bin/cat > ${SNAME}-ks.cfg << EOF
 text
 auth --enableshadow --passalgo=sha512
-url --url="http://mirror.1000mbps.com/fedora/linux/releases/20/Fedora/x86_64/os/"
+url --url="http://mirror.1000mbps.com/fedora/linux/releases/${OSVARIANT}/Fedora/x86_64/os/"
 ignoredisk --only-use=vda
 keyboard --vckeymap=us --xlayouts='us'
 lang en_US.UTF-8
@@ -286,8 +287,6 @@ _V=0
 
 declare -rx SCRIPT=\${0##*/}
 
-declare -r OSVARIANT="Fedora20"
-
 declare DISKPATH=""
 
 log () {
@@ -352,7 +351,7 @@ else
 fi
 
 /usr/bin/virt-install --connect qemu:///system --name "${SNAME}${NETWK}" --ram 2048 --vcpus 2 --disk path=\${DISKPATH} --graphics spice --network network=$(printf "%s\n" "${NETWK}" | /bin/sed 's/\.//') \
-	--os-variant \${OSVARIANT} --location "http://mirror.1000mbps.com/fedora/linux/releases/20/Fedora/x86_64/os/" --cpu host --extra-args "ks=${KICKSTART}"
+	--os-variant Fedora${OSVARIANT} --location "http://mirror.1000mbps.com/fedora/linux/releases/${OSVARIANT}/Fedora/x86_64/os/" --cpu host --extra-args "ks=${KICKSTART}"
 EOF
 
 /bin/chmod +x ${SNAME}-install
