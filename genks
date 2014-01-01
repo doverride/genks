@@ -121,10 +121,24 @@ else
 	exit 192
 fi
 
+if [ -x "/bin/ls" ]; then
+	log "command: /bin/ls is executable"
+else
+	printf "$SCRIPT:$LINENO: %s\n" "command: /bin/ls is not executable" >&2
+	exit 192
+fi
+
 if [ -x "/usr/bin/python" ]; then
 	log "command: /usr/bin/python is executable"
 else
 	printf "$SCRIPT:$LINENO: %s\n" "command: /usr/bin/python is not executable" >&2
+	exit 192
+fi
+
+if [ -x "/usr/bin/find" ]; then
+	log "command: /usr/bin/find is executable"
+else
+	printf "$SCRIPT:$LINENO: %s\n" "command: /usr/bin/find is not executable" >&2
 	exit 192
 fi
 
@@ -213,6 +227,16 @@ Banner /etc/issue.net
 AllowTcpForwarding no
 X11Forwarding no
 TEST
+
+/bin/cat >> /etc/audit/audit.rules << TEST
+
+# Collect Information on the Use of Privileged Commands
+
+TEST
+
+for EACH in $(/usr/bin/find / -type f \( -perm -4000 -o -perm -2000 \) -exec /bin/ls {} \; 2>/dev/null) ; do
+	printf "%s\n" "-a always,exit -F path=${EACH} -F perm=x -F auid>=1000 -k privileged" >> /etc/audit/audit.rules
+done
 
 /bin/cat >> /etc/audit/audit.rules << TEST
 
