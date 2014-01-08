@@ -167,13 +167,14 @@ user --groups=wheel --name=${UNAME} --password=$(rootpw ${PASSW} ${USALT}) --isc
 bootloader --location=mbr --boot-drive=vda --append="rhgb quiet enablemodulesig=1"
 autopart --type=lvm
 clearpart --all --initlabel --drives=vda
-services --enabled=acpid
+services --enabled=acpid,ntpd
 shutdown
 
 %packages --ignoremissing
 @core
 acpi
 nano
+ntp
 %end
 
 %post --log=/root/ks-error.log
