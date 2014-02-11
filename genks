@@ -17,7 +17,7 @@ declare RPASS=""
 declare UNAME=""
 declare PASSW=""
 
-declare CONSOLE=0
+declare CONSOLE="0"
 
 source KEY
 
@@ -171,7 +171,7 @@ network  --bootproto=dhcp --device=eth0 --noipv6 --activate --hostname=${SNAME}$
 rootpw --iscrypted $(rootpw ${RPASS} ${RSALT})
 timezone Europe/Amsterdam --isUtc
 user --groups=wheel --name=${UNAME} --password=$(rootpw ${PASSW} ${USALT}) --iscrypted
-bootloader --location=mbr --boot-drive=vda --append="$(if [ "$CONSOLE" == "1" ] ; then printf "%s\n" "rhgb quiet enablemodulesig=1 console=tty0 console=ttyS0,115200 rd_NO_PLYMOUTH serial text" ; else printf "%s\n" "rhgb quiet enablemodulesig=1" ; fi )"
+bootloader --location=mbr --boot-drive=vda --append=$(if [ "$CONSOLE" == "1" ] ; then printf "%s\n" "\"rhgb quiet enablemodulesig=1 console=tty0 console=ttyS0,115200 serial rd_NO_PLYMOUTH\"" ; else printf "%s\n" "\"rhgb quiet enablemodulesig=1\"" ; fi )
 autopart --type=lvm
 clearpart --all --initlabel --drives=vda
 services --enabled=acpid,ntpd
