@@ -171,7 +171,7 @@ network  --bootproto=dhcp --device=eth0 --noipv6 --activate --hostname=${SNAME}$
 rootpw --iscrypted $(rootpw ${RPASS} ${RSALT})
 timezone Europe/Amsterdam --isUtc
 user --groups=wheel --name=${UNAME} --password=$(rootpw ${PASSW} ${USALT}) --iscrypted
-bootloader --location=mbr --boot-drive=vda --append=$(if [ "$CONSOLE" == "1" ] ; then printf "%s\n" "\"rhgb quiet enablemodulesig=1 console=tty0 console=ttyS0,115200 serial rd_NO_PLYMOUTH\"" ; else printf "%s\n" "\"rhgb quiet enablemodulesig=1\"" ; fi )
+bootloader --location=mbr --boot-drive=vda --append=$(if [ "$CONSOLE" == "1" ] ; then printf "%s\n" "\"enablemodulesig=1 console=tty0 console=ttyS0,115200 serial rd_NO_PLYMOUTH\"" ; else printf "%s\n" "\"rhgb quiet enablemodulesig=1\"" ; fi )
 autopart --type=lvm
 clearpart --all --initlabel --drives=vda
 services --enabled=acpid,ntpd
@@ -382,7 +382,7 @@ else
 	exit 192
 fi
 
-/usr/bin/virt-install --connect qemu:///system --name "${SNAME}${NETWK}" --ram 2048 --vcpus 2 --disk path=\${DISKPATH} $(if [ "${CONSOLE}" == "1" ] ; then printf "%s\n" "--nographics --extra-args \"ks=${KICKSTART} console=tty0 console=ttyS0,115200 serial rd_NO_PLYMOUTH\"" ; else printf "%s\n" "--graphics spice --extra-args ks=${KICKSTART}" ; fi) --network network=$(printf "%s\n" "${NETWK}" | /bin/sed 's/\.//') \
+/usr/bin/virt-install --connect qemu:///system --name "${SNAME}${NETWK}" --ram 2048 --vcpus 2 --disk path=\${DISKPATH} $(if [ "${CONSOLE}" == "1" ] ; then printf "%s\n" "--nographics --noautoconsole --extra-args \"ks=${KICKSTART} console=tty0 console=ttyS0,115200 serial rd_NO_PLYMOUTH\"" ; else printf "%s\n" "--graphics spice --extra-args ks=${KICKSTART}" ; fi) --network network=$(printf "%s\n" "${NETWK}" | /bin/sed 's/\.//') \
 	--os-variant Fedora${OSVARIANT} --location "http://192.168.1.254/fedora/linux/releases/${OSVARIANT}/Fedora/x86_64/os/" --cpu host
 EOF
 
