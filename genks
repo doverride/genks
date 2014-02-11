@@ -17,6 +17,8 @@ declare RPASS=""
 declare UNAME=""
 declare PASSW=""
 
+declare CONSOLE=0
+
 source KEY
 
 log () {
@@ -34,6 +36,11 @@ fi
 
 while [ $# -gt 0 ] ; do
 	case "$1" in
+		-c | --console )
+			shift
+
+			CONSOLE="1"
+			;;
 		-s | --sname )
 			shift
 
@@ -156,7 +163,7 @@ fi
 /bin/cat > ${SNAME}-ks.cfg << EOF
 text
 auth --enableshadow --passalgo=sha512
-url --url="http://mirror.1000mbps.com/fedora/linux/releases/${OSVARIANT}/Fedora/x86_64/os/"
+url --url="http://192.168.1.254/fedora/linux/releases/${OSVARIANT}/Fedora/x86_64/os/"
 ignoredisk --only-use=vda
 keyboard --vckeymap=us --xlayouts='us'
 lang en_US.UTF-8
@@ -164,7 +171,7 @@ network  --bootproto=dhcp --device=eth0 --noipv6 --activate --hostname=${SNAME}$
 rootpw --iscrypted $(rootpw ${RPASS} ${RSALT})
 timezone Europe/Amsterdam --isUtc
 user --groups=wheel --name=${UNAME} --password=$(rootpw ${PASSW} ${USALT}) --iscrypted
-bootloader --location=mbr --boot-drive=vda --append="rhgb quiet enablemodulesig=1"
+bootloader --location=mbr --boot-drive=vda --append="$(if [ "$CONSOLE" == "1" ] ; then printf "%s\n" "rhgb quiet enablemodulesig=1 -location=mbr --append=\"console=tty0 console=ttyS0,115200 rd_NO_PLYMOUTH serial text\"" ; else printf "%s\n" "rhgb quiet enablemodulesig=1" ; fi )"
 autopart --type=lvm
 clearpart --all --initlabel --drives=vda
 services --enabled=acpid,ntpd
@@ -375,8 +382,8 @@ else
 	exit 192
 fi
 
-/usr/bin/virt-install --connect qemu:///system --name "${SNAME}${NETWK}" --ram 2048 --vcpus 2 --disk path=\${DISKPATH} --graphics spice --network network=$(printf "%s\n" "${NETWK}" | /bin/sed 's/\.//') \
-	--os-variant Fedora${OSVARIANT} --location "http://mirror.1000mbps.com/fedora/linux/releases/${OSVARIANT}/Fedora/x86_64/os/" --cpu host --extra-args "ks=${KICKSTART}"
+/usr/bin/virt-install --connect qemu:///system --name "${SNAME}${NETWK}" --ram 2048 --vcpus 2 --disk path=\${DISKPATH} $(if [ "${CONSOLE}" == "1" ] ; then printf "%s\n" "--nographics --extra-args \"ks=${KICKSTART} console=tty0 console=ttyS0,115200 serial rd_NO_PLYMOUTH\"" ; else printf "%s\n" "--graphics spice --extra-args ks=${KICKSTART}" ; fi) --network network=$(printf "%s\n" "${NETWK}" | /bin/sed 's/\.//') \
+	--os-variant Fedora${OSVARIANT} --location "http://192.168.1.254/fedora/linux/releases/${OSVARIANT}/Fedora/x86_64/os/" --cpu host
 EOF
 
 /bin/chmod +x ${SNAME}-install
