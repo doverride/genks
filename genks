@@ -383,7 +383,7 @@ else
 	exit 192
 fi
 
-/usr/bin/virt-install --connect qemu:///system --name "${SNAME}${NETWK}" --ram 2048 --vcpus 2 --disk path=\${DISKPATH} $(if [ "${CONSOLE}" == "1" ] ; then printf "%s\n" "--nographics --noautoconsole --extra-args \"ks=${KICKSTART} console=tty0 console=ttyS0,115200 serial rd_NO_PLYMOUTH\"" ; else printf "%s\n" "--graphics spice --serial pty --extra-args ks=${KICKSTART}" ; fi) --network network=$(printf "%s\n" "${NETWK}" | /bin/sed 's/\.//') \
+/usr/bin/virt-install --connect qemu:///system --name "${SNAME}${NETWK}" --ram 2048 --vcpus 2 --disk path=\${DISKPATH} $(if [ "${CONSOLE}" == "1" ] ; then printf "%s\n" "--nographics --serial pty --noautoconsole --extra-args \"ks=${KICKSTART} console=tty0 console=ttyS0,115200 serial rd_NO_PLYMOUTH\"" ; else printf "%s\n" "--graphics spice --extra-args ks=${KICKSTART}" ; fi) --network network=$(printf "%s\n" "${NETWK}" | /bin/sed 's/\.//') \
 	--os-variant Fedora${OSVARIANT} --location "http://192.168.1.254/fedora/linux/releases/${OSVARIANT}/Fedora/x86_64/os/" --cpu host
 EOF
 
