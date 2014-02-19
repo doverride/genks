@@ -6,7 +6,7 @@ _V=0
 
 declare -rx SCRIPT=${0##*/}
 
-declare -r NETWK=".network1"
+declare -r NETWK=".network3"
 declare -r OSVARIANT="20"
 declare -r LOCATION="192.168.1.254"
 
