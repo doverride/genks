@@ -8,6 +8,7 @@ declare -rx SCRIPT=${0##*/}
 
 declare -r NETWK=".network1"
 declare -r OSVARIANT="20"
+declare -r LOCATION="192.168.1.254"
 
 declare -r RSALT="mysalt"
 declare -r USALT="mysalt"
@@ -21,16 +22,19 @@ declare CONSOLE="0"
 
 source KEY
 
-log () {
+log()
+{
 	[[ $_V -eq 1 ]] && printf "$SCRIPT:$LINENO: %s\n" "$@"
 }
 
-rootpw() {
+rootpw()
+{
 	/usr/bin/python -c 'import crypt; print(crypt.crypt("'$1'", "$6$'$2'"))'
 }
 
 if [ $# -eq 0 ] ; then
-	printf "$SCRIPT:$LINENO: %s\n" "$SCRIPT -s [SYSTEM NAME] -r [ROOT PASSWORD] -u [USER NAME] -p [USER PASSWORD]" >&2
+	printf "$SCRIPT:$LINENO: %s\n" "$SCRIPT -s [SYSTEM NAME] -r [ROOT PASSWORD] -u [USER NAME] \
+-p [USER PASSWORD] (-c)" >&2
 	exit 192
 fi
 
@@ -40,6 +44,8 @@ while [ $# -gt 0 ] ; do
 			shift
 
 			CONSOLE="1"
+
+            log "console only"
 			;;
 		-s | --sname )
 			shift
@@ -163,7 +169,7 @@ fi
 /bin/cat > ${SNAME}-ks.cfg << EOF
 text
 auth --enableshadow --passalgo=sha512
-url --url="http://192.168.1.254/fedora/linux/releases/${OSVARIANT}/Fedora/x86_64/os/"
+url --url="http://${LOCATION}/fedora/linux/releases/${OSVARIANT}/Fedora/x86_64/os/"
 ignoredisk --only-use=vda
 keyboard --vckeymap=us --xlayouts='us'
 lang en_US.UTF-8
@@ -174,12 +180,11 @@ user --groups=wheel --name=${UNAME} --password=$(rootpw ${PASSW} ${USALT}) --isc
 bootloader --location=mbr --boot-drive=vda --append=$(if [ "$CONSOLE" == "1" ] ; then printf "%s\n" "\"enablemodulesig=1 console=tty0 console=ttyS0,115200 serial rd_NO_PLYMOUTH\"" ; else printf "%s\n" "\"rhgb quiet enablemodulesig=1\"" ; fi )
 autopart --type=lvm
 clearpart --all --initlabel --drives=vda
-services --enabled=acpid,ntpd
+services --enabled=ntpd
 shutdown
 
 %packages --ignoremissing
 @core
-acpi
 nano
 ntp
 qemu-guest-agent
@@ -309,7 +314,8 @@ else
     exit 192
 fi
 
-KICKSTART=$(printf "%s\n" "$(/usr/bin/fpaste ${SNAME}-ks.cfg | /bin/tail -n 1 | /bin/awk -F " " '{ print $3 }')/raw")
+KICKSTART=$(printf "%s\n" "$(/usr/bin/fpaste ${SNAME}-ks.cfg | /bin/tail -n 1 \ 
+| /bin/awk -F " " '{ print $3 }')/raw")
 
 /bin/cat > ${SNAME}-install << EOF
 #!/bin/bash --
@@ -321,6 +327,9 @@ _V=0
 declare -rx SCRIPT=\${0##*/}
 
 declare DISKPATH=""
+
+declare RAM="2048"
+declare VCPUS="2"
 
 log () {
     [[ \$_V -eq 1 ]] && printf "\$SCRIPT:\$LINENO: %s\n" "\$@"
@@ -350,6 +359,40 @@ while [ \$# -gt 0 ] ; do
                 exit 192
             fi
             ;;
+		-r | --ram )
+			shift
+
+            if [ \$# -eq 0 ] ; then
+                printf "\$SCRIPT:\$LINENO: %s\n" "ram is missing" >&2
+                exit 192
+            else
+                log "ram: \$1"
+            fi
+
+			RAM="\$1"
+
+            if [ "\$RAM" == "" ] ; then
+                printf "\$SCRIPT:\$LINENO: %s\n" "ram must be specified" >&2
+                exit 192
+            fi
+			;;
+		-v | --vcpus )
+			shift
+
+            if [ \$# -eq 0 ] ; then
+                printf "\$SCRIPT:\$LINENO: %s\n" "vcpus is missing" >&2
+                exit 192
+            else
+                log "vcpus: \$1"
+            fi
+
+			VCPUS="\$1"
+
+            if [ "\$VCPUS" == "" ] ; then
+                printf "\$SCRIPT:\$LINENO: %s\n" "vcpus must be specified" >&2
+                exit 192
+            fi
+			;;
         -* )
             printf "\$SCRIPT:\$LINENO: %s\n" "switch \$1 not supported" >&2
             exit 192
@@ -383,8 +426,8 @@ else
 	exit 192
 fi
 
-/usr/bin/virt-install --connect qemu:///system --name "${SNAME}${NETWK}" --ram 2048 --vcpus 2 --disk path=\${DISKPATH} $(if [ "${CONSOLE}" == "1" ] ; then printf "%s\n" "--nographics --serial pty --noautoconsole --extra-args \"ks=${KICKSTART} console=tty0 console=ttyS0,115200 serial rd_NO_PLYMOUTH\"" ; else printf "%s\n" "--graphics spice --extra-args ks=${KICKSTART}" ; fi) --network network=$(printf "%s\n" "${NETWK}" | /bin/sed 's/\.//') \
-	--os-variant Fedora${OSVARIANT} --location "http://192.168.1.254/fedora/linux/releases/${OSVARIANT}/Fedora/x86_64/os/" --cpu host
+/usr/bin/virt-install --connect qemu:///system --name "${SNAME}${NETWK}" --ram \${RAM} --vcpus \${VCPUS} --disk path=\${DISKPATH} $(if [ "${CONSOLE}" == "1" ] ; then printf "%s\n" "--nographics --serial pty --noautoconsole --extra-args \"ks=${KICKSTART} console=tty0 console=ttyS0,115200 serial rd_NO_PLYMOUTH\"" ; else printf "%s\n" "--graphics spice --extra-args ks=${KICKSTART}" ; fi) --network network=$(printf "%s\n" "${NETWK}" | /bin/sed 's/\.//') \
+	--os-variant Fedora${OSVARIANT} --location "http://${LOCATION}/fedora/linux/releases/${OSVARIANT}/Fedora/x86_64/os/" --cpu host
 EOF
 
 /bin/chmod +x ${SNAME}-install
