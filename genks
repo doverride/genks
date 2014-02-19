@@ -336,7 +336,7 @@ log () {
 }
 
 if [ \$# -eq 0 ] ; then
-    printf "\$SCRIPT:\$LINENO: %s\n" "\$SCRIPT -d [DISK PATH]" >&2
+    printf "\$SCRIPT:\$LINENO: %s\n" "\$SCRIPT -d [DISK PATH] (-r [RAM]) (-v [VCPUS])" >&2
     exit 192
 fi
 
