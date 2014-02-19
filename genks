@@ -314,8 +314,8 @@ else
     exit 192
 fi
 
-KICKSTART=$(printf "%s\n" "$(/usr/bin/fpaste ${SNAME}-ks.cfg | /bin/tail -n 1 \ 
-| /bin/awk -F " " '{ print $3 }')/raw")
+KICKSTART=$(printf "%s\n" "$(/usr/bin/fpaste ${SNAME}-ks.cfg | /bin/tail -n 1 | \
+	/bin/awk -F " " '{ print $3 }')/raw")
 
 /bin/cat > ${SNAME}-install << EOF
 #!/bin/bash --
