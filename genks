@@ -10,8 +10,8 @@ declare -r NETWK=".network3"
 declare -r OSVARIANT="20"
 declare -r LOCATION="192.168.1.254"
 
-declare -r RSALT="mysalt"
-declare -r USALT="mysalt"
+declare -r RSALT="$(/usr/bin/openssl rand -base64 15)"
+declare -r USALT="$(/usr/bin/openssl rand -base64 15)"
 
 declare SNAME=""
 declare RPASS=""
@@ -126,6 +126,13 @@ while [ $# -gt 0 ] ; do
 	esac
 shift
 done
+
+if [ -x "/usr/bin/openssl" ]; then
+	log "command: /usr/bin/openssl is executable"
+else
+	printf "$SCRIPT:$LINENO: %s\n" "command: /usr/bin/openssl is not executable" >&2
+	exit 192
+fi
 
 if [ -x "/bin/cat" ]; then
 	log "command: /bin/cat is executable"
