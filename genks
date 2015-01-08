@@ -7,8 +7,10 @@ _V=0
 declare -rx SCRIPT=${0##*/}
 
 declare -r NETWK=".network3"
-declare -r OSVARIANT="20"
+declare -r OSVARIANT="21"
 declare -r LOCATION="192.168.1.254"
+
+# rsync -vaH --numeric-ids --delete --delete-after --delay-updates "rsync://mirror.1000mbps.com/fedora/linux/releases/21/Server/x86_64/os" "/srv/httpd.network2/html/fedora/linux/releases/21/Fedora/x86_64/os"
 
 declare -r RSALT="$(/usr/bin/openssl rand -base64 15)"
 declare -r USALT="$(/usr/bin/openssl rand -base64 15)"
